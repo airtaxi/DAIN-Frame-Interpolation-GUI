@@ -56,30 +56,33 @@ namespace Frame_Interpolation
         private async void BT_Start_Click(object sender, RoutedEventArgs e)
         {
             string originalButtonContent = (string)BT_Start.Content;
-            BT_Start.Content = "This may take a while...";
+            BT_Start.Content = "This process take a while...";
             BT_Start.IsEnabled = false;
             string path = TBX_Path.Text;
             if (File.Exists(path))
             {
                 PB_Main.Visibility = Visibility.Visible;
+                PB_Main.IsIndeterminate = true;
                 if (Directory.Exists("pre-process")) Directory.Delete("pre-process", true);
                 Directory.CreateDirectory("pre-process");
                 var uri = new System.Uri(GetLocalFullPath("complete.wav"));
-                var player = new MediaPlayer();
-                player.Volume = 0;
+                var player = new MediaPlayer
+                {
+                    Volume = 0
+                };
                 player.Open(uri);
                 var video = new VideoInfo(path);
-                var fps = video.FrameRate;
-                var ffmpegPath = GetLocalFullPath("assets\\x86\\ffmpeg.exe");
-                var ffmpegArgs = $"-i {path} -vf fps={fps} \"{GetLocalFullPath("pre-process\\out%07d.png")}\"";
+                double fps = video.FrameRate;
+                string ffmpegPath = GetLocalFullPath("assets\\x86\\ffmpeg.exe");
+                string ffmpegArgs = $"-i {path} -vf fps={fps} \"{GetLocalFullPath("pre-process\\out%07d.png")}\"";
                 
-                var dainPath = GetLocalFullPath("assets\\dain-ncnn-vulkan.exe");
-                var dainInputPath = GetLocalFullPath("pre-process");
-                var dainOutputPath = GetLocalFullPath("output-frames");
+                string dainPath = GetLocalFullPath("assets\\dain-ncnn-vulkan.exe");
+                string dainInputPath = GetLocalFullPath("pre-process");
+                string dainOutputPath = GetLocalFullPath("output-frames");
                 string audioPath = GetLocalFullPath("output.mp3");
 
                 FileInfo outputFileWithAudio = new FileInfo(GetLocalFullPath("output.mp4"));
-                var ffmpegJoinArgs = $"-r {fps*2} -i \"{dainOutputPath}\\%08d.png\" -i \"{audioPath}\" \"{outputFileWithAudio}\" -c:a copy -c:v libx264 -pix_fmt yuv420p -crf 24 -y";
+                string ffmpegJoinArgs = $"-r {fps*2} -i \"{dainOutputPath}\\%08d.png\" -i \"{audioPath}\" \"{outputFileWithAudio}\" -c:a copy -c:v libx264 -pix_fmt yuv420p -crf 24 -y";
 
                 ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
                 int gpuCount = 0;
@@ -97,7 +100,7 @@ namespace Frame_Interpolation
                     if (i != gpuCount - 1) graphicsOptionBuilder.Append(",");
                 }
 
-                var dainArgs = $"-i \"{dainInputPath}\" -o \"{dainOutputPath}\" -v";
+                string dainArgs = $"-i \"{dainInputPath}\" -o \"{dainOutputPath}\" -g {graphicsOptionBuilder} -v";
                 FileInfo audioFileInfo = null;
                 await Task.Run(() =>
                 {
@@ -108,10 +111,30 @@ namespace Frame_Interpolation
                 });
                 if (Directory.Exists("output-frames")) Directory.Delete("output-frames", true);
                 Directory.CreateDirectory("output-frames");
-                await Task.Run(() =>
+                bool isCompleted = false;
+                await Task.Run(async () =>
                 {
                     ProcessStartInfo info = new ProcessStartInfo(dainPath, dainArgs);
+                    await Dispatcher.InvokeAsync(() => {
+                        PB_Main.IsIndeterminate = false;
+                    });
+                    _ = Task.Run(async () =>
+                      {
+                          while (!isCompleted)
+                          {
+                              int maxFrame = (int)fps * 2;
+                              int currentFrame = Directory.GetFiles("output-frames").Length; await Task.Delay(1000);
+                              double percentage = ((double) currentFrame / maxFrame) * 100.0;
+                              await Dispatcher.InvokeAsync(() =>
+                              { 
+                                  PB_Main.Value = percentage;
+                              });
+                              await Task.Delay(500);
+                          }
+                      });
                     StartProcess(info);
+                    isCompleted = true;
+                    PB_Main.IsIndeterminate = true;
                 });
                 Directory.Delete(GetLocalFullPath("pre-process"), true);
                 Clipboard.SetText("\""+ffmpegPath + "\" " + ffmpegJoinArgs);
@@ -126,13 +149,14 @@ namespace Frame_Interpolation
                 player.Volume = 1;
                 player.Play();
                 PB_Main.Visibility = Visibility.Collapsed;
-                PB_Main.IsIndeterminate = true;
 
                 string outputDefaultFileName = System.IO.Path.GetFileNameWithoutExtension(path);
-                SaveFileDialog sfd = new SaveFileDialog();
-                sfd.DefaultExt = "mp4";
-                sfd.Filter = "Video file (*.mp4)|*.mp4|All files (*.*)|*.*";
-                sfd.FileName = $"{outputDefaultFileName}-2x.mp4";
+                SaveFileDialog sfd = new SaveFileDialog
+                {
+                    DefaultExt = "mp4",
+                    Filter = "Video file (*.mp4)|*.mp4|All files (*.*)|*.*",
+                    FileName = $"{outputDefaultFileName}-2x.mp4"
+                };
                 if (sfd.ShowDialog() == true)
                 {
                     File.Move(outputFileWithAudio.FullName, sfd.FileName);
@@ -147,8 +171,10 @@ namespace Frame_Interpolation
 
         private void BT_Path_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog dialog = new OpenFileDialog();
-            dialog.Filter = "video files (*.mp4;*.avi;*.mkv;*.flv)|*.mp4;*.avi;*.mkv;*.flv|All files (*.*)|*.*";
+            OpenFileDialog dialog = new OpenFileDialog
+            {
+                Filter = "video files (*.mp4;*.avi;*.mkv;*.flv)|*.mp4;*.avi;*.mkv;*.flv|All files (*.*)|*.*"
+            };
             if (dialog.ShowDialog() == true)
             {
                 string path = dialog.FileName;
