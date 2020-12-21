@@ -1,0 +1,26 @@
+﻿<mah:MetroWindow x:Class="Frame_Interpolation.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Frame_Interpolation"
+        mc:Ignorable="d"
+        Title="Frame Interpolation" Height="auto" Width="auto" ShowIconOnTitleBar="False" ResizeMode="NoResize" SizeToContent="WidthAndHeight">
+    <StackPanel Orientation="Vertical" Margin="5,5,5,5">
+        <StackPanel Orientation="Horizontal">
+            <TextBox x:Name="TBX_Path" Width="200" mah:TextBoxHelper.Watermark="File Path" mah:TextBoxHelper.UseFloatingWatermark="True" KeyUp="TBX_Path_KeyUp"/>
+            <Button x:Name="BT_Path" Content="..." Margin="5,0,0,0" Click="BT_Path_Click"/>
+        </StackPanel>
+        <!--<TextBlock Text="Target Frame Rate" Margin="0,5,0,5" FontSize="15"/>
+        <ComboBox Name="CB_Target" Text="Target Frame" SelectedIndex="1">
+            <ComboBoxItem Content="30"/>
+            <ComboBoxItem Content="60"/>
+            <ComboBoxItem Content="75"/>
+            <ComboBoxItem Content="90"/>
+            <ComboBoxItem Content="120"/>
+        </ComboBox>-->
+        <mah:MetroProgressBar x:Name="PB_Main" IsIndeterminate="True" Margin="0,5,0,0" Visibility="Collapsed"/>
+        <Button x:Name="BT_Start" Content="Start!" Margin="0,5,0,0" Click="BT_Start_Click"/>
+    </StackPanel>
+</mah:MetroWindow>
