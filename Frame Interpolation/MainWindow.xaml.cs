@@ -5,6 +5,7 @@ using FFMpegSharp.FFMPEG.Arguments;
 using FFMpegSharp.FFMPEG.Enums;
 using MahApps.Metro.Controls;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -72,10 +73,13 @@ namespace Frame_Interpolation
                 };
                 player.Open(uri);
                 var video = new VideoInfo(path);
+                int totalFrames = 0;
                 double fps = video.FrameRate;
                 string ffmpegPath = GetLocalFullPath("assets\\x86\\ffmpeg.exe");
-                string ffmpegArgs = $"-i {path} -vf fps={fps} \"{GetLocalFullPath("pre-process\\out%07d.png")}\"";
-                
+                string ffprobePath = GetLocalFullPath("assets\\x86\\ffprobe.exe");
+                string ffmpegArgs = $"-i \"{path}\" -vf fps={fps} \"{GetLocalFullPath("pre-process\\out%07d.png")}\"";
+                string ffprobeArgs = $"-i \"{path}\" -print_format json -loglevel fatal -show_streams -count_frames -select_streams v";
+
                 string dainPath = GetLocalFullPath("assets\\dain-ncnn-vulkan.exe");
                 string dainInputPath = GetLocalFullPath("pre-process");
                 string dainOutputPath = GetLocalFullPath("output-frames");
@@ -109,6 +113,20 @@ namespace Frame_Interpolation
                     ProcessStartInfo info = new ProcessStartInfo(ffmpegPath, ffmpegArgs);
                     StartProcess(info);
                 });
+                await Task.Run(() =>
+                {
+                    ProcessStartInfo info = new ProcessStartInfo(ffprobePath, ffprobeArgs);
+                    info.RedirectStandardOutput = true;
+                    info.UseShellExecute = false;
+                    info.WindowStyle = ProcessWindowStyle.Hidden;
+                    var process = Process.Start(info);
+                    childs.Add(process);
+                    process.WaitForExit();
+
+                    string infoStr = process.StandardOutput.ReadToEnd();
+                    var videoInfo = JsonConvert.DeserializeObject<JsonArgs.VideoInfo.Root>(infoStr);
+                    int.TryParse(videoInfo.streams[0].nb_frames, out totalFrames);
+                });
                 if (Directory.Exists("output-frames")) Directory.Delete("output-frames", true);
                 Directory.CreateDirectory("output-frames");
                 bool isCompleted = false;
@@ -122,7 +140,7 @@ namespace Frame_Interpolation
                       {
                           while (!isCompleted)
                           {
-                              int maxFrame = (int)fps * 2;
+                              int maxFrame = totalFrames * 2;
                               int currentFrame = Directory.GetFiles("output-frames").Length; await Task.Delay(1000);
                               double percentage = ((double) currentFrame / maxFrame) * 100.0;
                               await Dispatcher.InvokeAsync(() =>
