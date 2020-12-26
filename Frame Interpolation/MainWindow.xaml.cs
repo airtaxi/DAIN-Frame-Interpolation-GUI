@@ -152,7 +152,10 @@ namespace Frame_Interpolation
                       });
                     StartProcess(info);
                     isCompleted = true;
-                    PB_Main.IsIndeterminate = true;
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        PB_Main.IsIndeterminate = true;
+                    });
                 });
                 Directory.Delete(GetLocalFullPath("pre-process"), true);
                 Clipboard.SetText("\""+ffmpegPath + "\" " + ffmpegJoinArgs);
